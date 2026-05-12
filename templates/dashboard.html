@@ -1,0 +1,215 @@
+{% extends "layout.html" %}
+
+{% set active_page = 'dashboard' %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}{% endblock %}
+
+{% block page_content %}
+<div class="dashboard-grid">
+    <!-- Top Stats Row (C1, Shared Directory, Licensed Users) -->
+    <div class="top-stats-row">
+        <div class="top-stat-card" data-testid="stat-storage">
+            <div class="top-stat-header">
+                <span class="top-stat-label">C1</span>
+                <div class="top-stat-icon"><i class="fas fa-hdd"></i></div>
+            </div>
+            <div class="top-stat-value">45.31%</div>
+            <div class="top-stat-subtext">452 GB free out of 999 GB</div>
+            <div class="stat-progress">
+                <div class="stat-progress-fill red" style="width: 45.31%"></div>
+            </div>
+        </div>
+        
+        <div class="top-stat-card" data-testid="stat-shared">
+            <div class="top-stat-header">
+                <span class="top-stat-label">Shared Directory</span>
+                <div class="top-stat-icon"><i class="fas fa-folder-open"></i></div>
+            </div>
+            <div class="top-stat-value">57.34%</div>
+            <div class="top-stat-subtext">5 TB free space out of 14 TB</div>
+            <div class="stat-progress">
+                <div class="stat-progress-fill orange" style="width: 57.34%"></div>
+            </div>
+        </div>
+        
+        <div class="top-stat-card" data-testid="stat-users">
+            <div class="top-stat-header">
+                <span class="top-stat-label">Licensed Users</span>
+                <div class="top-stat-icon"><i class="fas fa-users"></i></div>
+            </div>
+            <div class="top-stat-value" id="licensedUsers">5/&infin;</div>
+            <div class="top-stat-subtext" style="display: flex; align-items: center; gap: 6px;">
+                <span style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></span>
+                Active Users
+            </div>
+            <div class="stat-progress">
+                <div class="stat-progress-fill" style="width: 10%"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Row -->
+    <div class="stats-row">
+        <div class="stat-card" data-testid="stat-documents">
+            <div class="stat-icon documents">
+                <i class="fas fa-file-alt"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-label">Total Documents</span>
+                <span class="stat-value" id="totalDocuments">0</span>
+                <span class="stat-change">+12% from last month</span>
+            </div>
+        </div>
+        
+        <div class="stat-card" data-testid="stat-pending">
+            <div class="stat-icon pending">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-label">Pending Archival</span>
+                <span class="stat-value" id="pendingArchival">0</span>
+                <span class="stat-subtext">Requires immediate action</span>
+            </div>
+        </div>
+        
+        <div class="stat-card" data-testid="stat-archived">
+            <div class="stat-icon archived">
+                <i class="fas fa-archive"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-label">Archived This Year</span>
+                <span class="stat-value" id="archivedThisYear">0</span>
+                <span class="stat-change">+5% from last year</span>
+            </div>
+        </div>
+        
+        <div class="stat-card" data-testid="stat-health">
+            <div class="stat-icon health">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-label">System Health</span>
+                <span class="stat-value">98%</span>
+                <span class="stat-subtext">AI Indexing active</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Content Row -->
+    <div class="dashboard-content-row">
+        <!-- Recent Documents -->
+        <div class="recent-documents-card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Documents</h3>
+            </div>
+            <div class="card-body" id="recentDocuments">
+                <div class="recent-doc-item">
+                    <div class="doc-icon-wrapper pdf">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <div class="doc-info">
+                        <div class="doc-name">Board Resolution 2025-01.pdf</div>
+                        <div class="doc-meta">PDF - Today, 10:23 AM</div>
+                    </div>
+                    <span class="doc-status indexed">Indexed</span>
+                </div>
+                <div class="recent-doc-item">
+                    <div class="doc-icon-wrapper docx">
+                        <i class="fas fa-file-word"></i>
+                    </div>
+                    <div class="doc-info">
+                        <div class="doc-name">Financial Report Q4 2024.docx</div>
+                        <div class="doc-meta">DOCX - Yesterday, 2:45 PM</div>
+                    </div>
+                    <span class="doc-status pending">Pending</span>
+                </div>
+                <div class="recent-doc-item">
+                    <div class="doc-icon-wrapper pdf">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <div class="doc-info">
+                        <div class="doc-name">Trustee Meeting Minutes Jan.pdf</div>
+                        <div class="doc-meta">PDF - Nov 24, 2024</div>
+                    </div>
+                    <span class="doc-status archived">Archived</span>
+                </div>
+                <div class="recent-doc-item">
+                    <div class="doc-icon-wrapper xlsx">
+                        <i class="fas fa-file-excel"></i>
+                    </div>
+                    <div class="doc-info">
+                        <div class="doc-name">Investment Portfolio Summary.xlsx</div>
+                        <div class="doc-meta">XLSX - Nov 23, 2024</div>
+                    </div>
+                    <span class="doc-status archived">Archived</span>
+                </div>
+                <div class="recent-doc-item">
+                    <div class="doc-icon-wrapper pdf">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <div class="doc-info">
+                        <div class="doc-name">Policy Amendment Draft v2.pdf</div>
+                        <div class="doc-meta">PDF - Nov 22, 2024</div>
+                    </div>
+                    <span class="doc-status review">Review</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="quick-actions-card">
+            <div class="card-header">
+                <h3 class="card-title">Quick Actions</h3>
+            </div>
+            <div class="quick-actions-list">
+                <a href="/upload" class="quick-action-item editor-only" data-testid="button-quick-upload">
+                    <div class="action-icon-wrapper upload">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <div class="action-info">
+                        <h4>Upload New Document</h4>
+                        <p>Add files to the archive</p>
+                    </div>
+                </a>
+                <a href="/search" class="quick-action-item" data-testid="button-quick-search">
+                    <div class="action-icon-wrapper search">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="action-info">
+                        <h4>Keyword Search</h4>
+                        <p>Find documents by content</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="system-notice">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="notice-content">
+                    <h4>System Notice</h4>
+                    <p>Scheduled maintenance will occur on Saturday, Nov 30th from 2:00 AM to 4:00 AM for AI model retraining.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function loadDashboardStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        
+        document.getElementById('totalDocuments').textContent = data.totalDocuments || 0;
+        document.getElementById('pendingArchival').textContent = data.pendingArchival || 0;
+        document.getElementById('archivedThisYear').textContent = data.archivedThisYear || 0;
+        document.getElementById('licensedUsers').textContent = (data.totalUsers || 0) + '/∞';
+        
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+}
+
+loadDashboardStats();
+</script>
+{% endblock %}

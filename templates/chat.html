@@ -1,0 +1,166 @@
+{% extends "layout.html" %}
+
+{% set active_page = 'chat' %}
+
+{% block page_title %}AI Chat{% endblock %}
+{% block page_subtitle %}{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-primary" id="newChatBtn" data-testid="button-new-chat">
+    <i class="fas fa-plus"></i>
+    New Conversation
+</button>
+{% endblock %}
+
+{% block page_content %}
+<div class="chat-page-container">
+    <!-- Chat Sidebar (Conversations) -->
+    <div class="chat-sidebar">
+        <div class="chat-search">
+            <input type="text" placeholder="Search conversations..." data-testid="input-search-conversations">
+        </div>
+        
+        <div class="conversations-list" id="conversationsList">
+            <div class="conversation-item active" data-testid="conversation-1">
+                <div class="conversation-title">Board Resolution Analysis</div>
+                <div class="conversation-date">Today, 10:23 AM</div>
+            </div>
+            <div class="conversation-item" data-testid="conversation-2">
+                <div class="conversation-title">Investment Policy Query</div>
+                <div class="conversation-date">Yesterday</div>
+            </div>
+            <div class="conversation-item" data-testid="conversation-3">
+                <div class="conversation-title">Meeting Minutes Summary</div>
+                <div class="conversation-date">Nov 24, 2024</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Chat Main Area -->
+    <div class="chat-main">
+        <div class="chat-header">
+            <div class="chat-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div>
+                <div class="chat-name">Vicente</div>
+                <div style="font-size: 12px; color: var(--text-muted);">AI Document Assistant</div>
+            </div>
+            <div class="chat-status">Online</div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">
+                <p>Hello! I'm Vicente, your AI document assistant. I can help you find, analyze, and understand documents in the AFPMBAI archive.</p>
+                <p style="margin-top: 8px;">What would you like to know about your documents today?</p>
+            </div>
+            
+            <div class="message user">
+                Can you summarize the latest board resolution about investment policies?
+            </div>
+            
+            <div class="message ai">
+                <p>Based on my analysis of the latest Board Resolution (BR-2025-001), here's a summary of the investment policy changes:</p>
+                <ul style="margin: 12px 0; padding-left: 20px;">
+                    <li>Updated asset allocation targets for 2025</li>
+                    <li>New ESG investment criteria requirements</li>
+                    <li>Revised risk management protocols</li>
+                    <li>Enhanced reporting requirements</li>
+                </ul>
+                <p>The resolution was approved on January 15, 2025 with amendments to Section 4.2 regarding alternative investments.</p>
+                
+                <div class="message-sources">
+                    <div class="sources-title">
+                        <i class="fas fa-file-alt"></i>
+                        View Source Documents
+                    </div>
+                    <div class="source-links">
+                        <a href="#" class="source-link">
+                            <i class="fas fa-file-pdf"></i>
+                            BR-2025-001.pdf
+                        </a>
+                        <a href="#" class="source-link">
+                            <i class="fas fa-file-pdf"></i>
+                            Investment Policy v3.pdf
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything about your documents..." data-testid="input-chat-message">
+                <button class="chat-send-btn" id="sendBtn" data-testid="button-send-message">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    if (!message) return;
+    
+    const messagesContainer = document.getElementById('chatMessages');
+    messagesContainer.innerHTML += `
+        <div class="message user">${escapeHtml(message)}</div>
+    `;
+    input.value = '';
+    
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    messagesContainer.innerHTML += `
+        <div class="message ai" id="typingIndicator">
+            <i class="fas fa-circle-notch fa-spin"></i> Thinking...
+        </div>
+    `;
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        
+        const data = await response.json();
+        
+        document.getElementById('typingIndicator').remove();
+        
+        messagesContainer.innerHTML += `
+            <div class="message ai">${data.response || 'I apologize, but I encountered an issue processing your request.'}</div>
+        `;
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+    } catch (error) {
+        document.getElementById('typingIndicator').remove();
+        messagesContainer.innerHTML += `
+            <div class="message ai">I'm sorry, I encountered an error. Please try again.</div>
+        `;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.getElementById('sendBtn').addEventListener('click', sendMessage);
+document.getElementById('chatInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+document.getElementById('newChatBtn').addEventListener('click', () => {
+    document.getElementById('chatMessages').innerHTML = `
+        <div class="message ai">
+            <p>Hello! I'm Vicente, your AI document assistant. How can I help you today?</p>
+        </div>
+    `;
+});
+</script>
+{% endblock %}

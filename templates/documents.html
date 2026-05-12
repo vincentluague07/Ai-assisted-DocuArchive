@@ -1,0 +1,330 @@
+{% extends "layout.html" %}
+
+{% set active_page = 'documents' %}
+
+{% block page_title %}Documents{% endblock %}
+{% block page_subtitle %}{% endblock %}
+
+{% block page_actions %}
+<a href="/folders" class="btn btn-secondary" data-testid="button-browse-folders">
+    <i class="fas fa-folder"></i>
+    Browse Folders
+</a>
+<button class="btn btn-secondary editor-only" data-testid="button-bulk-import">
+    <i class="fas fa-file-import"></i>
+    Bulk Import
+</button>
+<a href="/upload" class="btn btn-primary editor-only" data-testid="button-upload-document">
+    <i class="fas fa-upload"></i>
+    Upload Document
+</a>
+<button class="btn btn-primary editor-only" data-testid="button-ai-indexing">
+    <i class="fas fa-robot"></i>
+    AI Indexing
+</button>
+{% endblock %}
+
+{% block page_content %}
+<div class="documents-container">
+    <!-- Filter Bar -->
+    <div class="documents-filter-bar">
+        <div class="filter-group">
+            <label>Document Type</label>
+            <select id="categoryFilter" class="filter-select" data-testid="select-category">
+                <option value="">All Types</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Year</label>
+            <select id="yearFilter" class="filter-select" data-testid="select-year">
+                <option value="">All Years</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+                <option value="2023">2023</option>
+                <option value="2022">2022</option>
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button class="btn btn-primary btn-sm" id="applyFilters" data-testid="button-filter">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <button class="btn btn-outline btn-sm" id="clearFilters" data-testid="button-clear-filter">
+                <i class="fas fa-times"></i> Clear
+            </button>
+        </div>
+    </div>
+    
+    <!-- Documents Table -->
+    <div class="documents-table-card">
+        <table class="documents-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Size</th>
+                    <th>Uploaded By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="documentsBody">
+                <tr>
+                    <td colspan="6" class="loading-cell">Loading documents...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- Document Detail Modal -->
+<div class="modal" id="documentModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Document Details</h2>
+            <button class="modal-close" data-testid="button-close-modal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="modalBody">
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal" id="deleteModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Delete Document</h2>
+            <button class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete <strong id="deleteDocName"></strong>?</p>
+            <p style="color: var(--text-muted); font-size: 13px;">This will move the document to the archive.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-danger" id="confirmDeleteBtn" data-testid="button-confirm-delete">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let documents = [];
+let categories = [];
+let deleteDocId = null;
+
+async function loadDocuments() {
+    try {
+        const [docsRes, catsRes] = await Promise.all([
+            fetch('/api/documents'),
+            fetch('/api/categories')
+        ]);
+        
+        documents = await docsRes.json();
+        categories = await catsRes.json();
+        
+        const catFilter = document.getElementById('categoryFilter');
+        catFilter.innerHTML = '<option value="">All Types</option>' + 
+            categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        
+        renderDocuments();
+    } catch (error) {
+        console.error('Failed to load documents:', error);
+        document.getElementById('documentsBody').innerHTML = 
+            '<tr><td colspan="6" class="error-cell">Failed to load documents</td></tr>';
+    }
+}
+
+function renderDocuments() {
+    const tbody = document.getElementById('documentsBody');
+    const categoryId = document.getElementById('categoryFilter').value;
+    const year = document.getElementById('yearFilter').value;
+    
+    let filtered = documents.filter(doc => {
+        const matchesCategory = !categoryId || doc.categoryId == categoryId;
+        const matchesYear = !year || new Date(doc.createdAt).getFullYear().toString() === year;
+        return matchesCategory && matchesYear;
+    });
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty-cell">
+                    No documents found. <a href="/upload">Upload your first document</a>
+                </td>
+            </tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(doc => `
+        <tr data-id="${doc.id}" data-testid="row-document-${doc.id}">
+            <td>
+                <a href="/documents/${doc.id}" class="doc-title-cell doc-title-link" data-testid="link-document-${doc.id}">
+                    <span class="doc-title-main">${escapeHtml(doc.title)}</span>
+                    <span class="doc-title-sub">${escapeHtml(doc.fileName || '')}</span>
+                </a>
+            </td>
+            <td><span class="type-badge">${doc.category ? doc.category.name : 'General'}</span></td>
+            <td>${formatDate(doc.createdAt)}</td>
+            <td>${formatSize(doc.fileSize)}</td>
+            <td>${doc.uploadedBy || 'System'}</td>
+            <td>
+                <div class="actions-cell">
+                    <button class="action-btn" onclick="toggleFavorite(${doc.id})" title="Favorite">
+                        <i class="fas fa-star"></i>
+                    </button>
+                    <button class="action-btn" onclick="downloadDocument(${doc.id})" title="Download" data-testid="button-download-${doc.id}">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="action-btn" onclick="viewDocument(${doc.id})" title="View" data-testid="button-view-${doc.id}">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="action-btn danger editor-only" onclick="showDeleteModal(${doc.id}, '${escapeHtml(doc.title)}')" title="Delete" data-testid="button-delete-${doc.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+    
+    if (window.currentUser && window.currentUser.role === 'board_trustee') {
+        document.querySelectorAll('.editor-only').forEach(el => el.style.display = 'none');
+    }
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatSize(bytes) {
+    if (!bytes) return '-';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    while (bytes >= 1024 && i < units.length - 1) {
+        bytes /= 1024;
+        i++;
+    }
+    return `${bytes.toFixed(1)} ${units[i]}`;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function toggleFavorite(id) {
+    console.log('Toggle favorite:', id);
+}
+
+function downloadDocument(id) {
+    window.location.href = `/api/documents/${id}/download`;
+}
+
+function viewDocument(id) {
+    // Navigate to the document view page
+    window.location.href = `/documents/${id}`;
+}
+
+async function viewDocumentModal(id) {
+    try {
+        const response = await fetch(`/api/documents/${id}`);
+        const doc = await response.json();
+        
+        document.getElementById('modalTitle').textContent = doc.title;
+        document.getElementById('modalBody').innerHTML = `
+            <div class="document-detail">
+                <div class="detail-section">
+                    <h4>Summary</h4>
+                    <p>${escapeHtml(doc.aiSummary || 'No AI summary available')}</p>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Details</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="label">File:</span>
+                            <span class="value">${escapeHtml(doc.fileName)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Size:</span>
+                            <span class="value">${formatSize(doc.fileSize)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Category:</span>
+                            <span class="value">${doc.category ? doc.category.name : 'Uncategorized'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Uploaded:</span>
+                            <span class="value">${new Date(doc.createdAt).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-actions" style="margin-top: 16px;">
+                    <button class="btn btn-primary" onclick="downloadDocument(${doc.id})">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('documentModal').classList.add('active');
+    } catch (error) {
+        console.error('Failed to load document:', error);
+    }
+}
+
+function showDeleteModal(id, title) {
+    deleteDocId = id;
+    document.getElementById('deleteDocName').textContent = title;
+    document.getElementById('deleteModal').classList.add('active');
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('active');
+    deleteDocId = null;
+}
+
+async function deleteDocument() {
+    if (!deleteDocId) return;
+    
+    try {
+        const response = await fetch(`/api/documents/${deleteDocId}`, { method: 'DELETE' });
+        if (response.ok) {
+            closeDeleteModal();
+            loadDocuments();
+        }
+    } catch (error) {
+        console.error('Failed to delete document:', error);
+    }
+}
+
+// Event listeners
+document.getElementById('applyFilters').addEventListener('click', renderDocuments);
+document.getElementById('clearFilters').addEventListener('click', () => {
+    document.getElementById('categoryFilter').value = '';
+    document.getElementById('yearFilter').value = '';
+    renderDocuments();
+});
+
+document.querySelectorAll('.modal-close, .modal-backdrop').forEach(el => {
+    el.addEventListener('click', () => {
+        document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+    });
+});
+
+document.getElementById('confirmDeleteBtn').addEventListener('click', deleteDocument);
+
+loadDocuments();
+</script>
+{% endblock %}

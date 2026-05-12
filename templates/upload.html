@@ -1,0 +1,285 @@
+{% extends "layout.html" %}
+
+{% set active_page = 'upload' %}
+
+{% block page_title %}Upload Document{% endblock %}
+{% block page_subtitle %}Add new board document to the system{% endblock %}
+
+{% block page_actions %}
+<a href="/documents" class="btn btn-outline" data-testid="link-back-documents">
+    <i class="fas fa-arrow-left"></i>
+    Back to Documents
+</a>
+{% endblock %}
+
+{% block page_content %}
+<div class="upload-page">
+    <form id="uploadForm" class="upload-form-modern">
+        <div class="form-section">
+            <h3 class="section-title">
+                <i class="fas fa-info-circle"></i>
+                Document Information
+            </h3>
+            
+            <div class="form-group">
+                <label for="title">Title<span class="required">*</span></label>
+                <input type="text" id="title" name="title" placeholder="" data-testid="input-title">
+                <span class="field-hint">Provide a clear, descriptive title for the document</span>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="documentType">Document Type<span class="required">*</span></label>
+                    <select id="documentType" name="categoryId" data-testid="select-document-type">
+                        <option value="">Select type</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="documentDate">Document Date<span class="required">*</span></label>
+                    <input type="date" id="documentDate" name="documentDate" data-testid="input-document-date">
+                    <span class="field-hint">Date when the document was created or issued</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" rows="4" placeholder="" data-testid="input-description"></textarea>
+                <span class="field-hint">Optional description or summary of the document content</span>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3 class="section-title">
+                <i class="fas fa-cloud-upload-alt"></i>
+                File Upload
+            </h3>
+            
+            <div class="form-group">
+                <label for="fileInput">Document File<span class="required">*</span></label>
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.ppt,.pptx,.xls,.xlsx" data-testid="input-file">
+                </div>
+                <span class="field-hint">Supported formats: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG, PPT, PPTX, XLS, XLSX (Max size: 50MB)</span>
+            </div>
+            
+            <div class="file-preview" id="filePreview" style="display: none;">
+                <div class="file-info">
+                    <i class="fas fa-file" id="fileIcon"></i>
+                    <div class="file-details">
+                        <span class="file-name" id="fileName">-</span>
+                        <span class="file-size" id="fileSize">-</span>
+                    </div>
+                    <button type="button" class="remove-file" id="removeFile" data-testid="button-remove-file">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3 class="section-title">
+                <i class="fas fa-cog"></i>
+                Additional Options
+            </h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="folder">Folder</label>
+                    <select id="folder" name="folder" data-testid="select-folder">
+                        <option value="">-- No Folder --</option>
+                    </select>
+                    <span class="field-hint">Organize document in a folder (optional)</span>
+                </div>
+                <div class="form-group">
+                    <label for="tags">Tags (comma-separated)</label>
+                    <input type="text" id="tags" name="tags" placeholder="" data-testid="input-tags">
+                    <span class="field-hint">Add tags separated by commas (e.g., budget, governance, annual)</span>
+                </div>
+            </div>
+            
+            <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="confidential" name="confidential" data-testid="checkbox-confidential">
+                    <span class="checkbox-text">Confidential Document</span>
+                </label>
+                <span class="field-hint checkbox-hint">Restrict access to admin users only (file will be encrypted with AES-256)</span>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" data-testid="button-submit-upload">
+                <i class="fas fa-upload"></i>
+                Upload Document
+            </button>
+        </div>
+    </form>
+    
+    <div class="upload-progress" id="uploadProgress" style="display: none;">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="progress-text" id="progressText">Uploading...</p>
+    </div>
+</div>
+
+<script>
+let selectedFile = null;
+
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/categories');
+        const categories = await response.json();
+        
+        const typeSelect = document.getElementById('documentType');
+        typeSelect.innerHTML = '<option value="">Select type</option>' + 
+            categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        
+        const folderSelect = document.getElementById('folder');
+        folderSelect.innerHTML = '<option value="">-- No Folder --</option>' + 
+            categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    } catch (error) {
+        console.error('Failed to load categories:', error);
+    }
+}
+
+function handleFileSelect(file) {
+    const allowedExtensions = ['pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png', 'ppt', 'pptx', 'xls', 'xlsx'];
+    
+    const ext = file.name.split('.').pop().toLowerCase();
+    
+    if (!allowedExtensions.includes(ext)) {
+        alert('File type not allowed. Please upload a supported file format.');
+        return;
+    }
+    
+    if (file.size > 50 * 1024 * 1024) {
+        alert('File too large. Maximum size is 50MB.');
+        return;
+    }
+    
+    selectedFile = file;
+    
+    document.getElementById('filePreview').style.display = 'flex';
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = formatSize(file.size);
+    
+    const iconClass = getFileIcon(ext);
+    document.getElementById('fileIcon').className = `fas ${iconClass}`;
+    
+    if (!document.getElementById('title').value) {
+        document.getElementById('title').value = file.name.replace(/\.[^/.]+$/, '');
+    }
+}
+
+function getFileIcon(ext) {
+    const icons = {
+        'pdf': 'fa-file-pdf',
+        'doc': 'fa-file-word',
+        'docx': 'fa-file-word',
+        'txt': 'fa-file-alt',
+        'jpg': 'fa-file-image',
+        'jpeg': 'fa-file-image',
+        'png': 'fa-file-image',
+        'ppt': 'fa-file-powerpoint',
+        'pptx': 'fa-file-powerpoint',
+        'xls': 'fa-file-excel',
+        'xlsx': 'fa-file-excel'
+    };
+    return icons[ext] || 'fa-file';
+}
+
+function formatSize(bytes) {
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    while (bytes >= 1024 && i < units.length - 1) {
+        bytes /= 1024;
+        i++;
+    }
+    return `${bytes.toFixed(1)} ${units[i]}`;
+}
+
+function removeFile() {
+    selectedFile = null;
+    document.getElementById('filePreview').style.display = 'none';
+    document.getElementById('fileInput').value = '';
+}
+
+async function handleSubmit(e) {
+    e.preventDefault();
+    
+    const title = document.getElementById('title').value.trim();
+    const documentType = document.getElementById('documentType').value;
+    const documentDate = document.getElementById('documentDate').value;
+    
+    if (!title) {
+        alert('Please enter a document title');
+        return;
+    }
+    
+    if (!documentType) {
+        alert('Please select a document type');
+        return;
+    }
+    
+    if (!documentDate) {
+        alert('Please select a document date');
+        return;
+    }
+    
+    if (!selectedFile) {
+        alert('Please select a file to upload');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('title', title);
+    formData.append('description', document.getElementById('description').value);
+    formData.append('categoryId', documentType);
+    formData.append('documentDate', documentDate);
+    formData.append('tags', document.getElementById('tags').value);
+    formData.append('confidential', document.getElementById('confidential').checked);
+    
+    const folder = document.getElementById('folder').value;
+    if (folder) formData.append('folder', folder);
+    
+    document.getElementById('uploadForm').style.display = 'none';
+    document.getElementById('uploadProgress').style.display = 'block';
+    
+    try {
+        const response = await fetch('/api/documents', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            document.getElementById('progressText').textContent = 'Document uploaded successfully!';
+            document.getElementById('progressFill').style.width = '100%';
+            
+            setTimeout(() => {
+                window.location.href = '/documents';
+            }, 1500);
+        } else {
+            const error = await response.json();
+            throw new Error(error.error || 'Upload failed');
+        }
+    } catch (error) {
+        console.error('Upload failed:', error);
+        document.getElementById('uploadProgress').style.display = 'none';
+        document.getElementById('uploadForm').style.display = 'block';
+        alert('Upload failed: ' + error.message);
+    }
+}
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+    if (e.target.files.length) {
+        handleFileSelect(e.target.files[0]);
+    }
+});
+
+document.getElementById('removeFile').addEventListener('click', removeFile);
+document.getElementById('uploadForm').addEventListener('submit', handleSubmit);
+
+loadCategories();
+</script>
+{% endblock %}

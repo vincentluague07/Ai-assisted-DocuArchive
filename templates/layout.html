@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="sidebar-logo">
+                    <img src="/static/images/afpmbai-logo.jpg" alt="AFPMBAI">
+                </div>
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-title">AFPMBAI</span>
+                    <span class="sidebar-subtitle">Document Archive</span>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <span class="nav-section-label">Main</span>
+                <a href="/dashboard" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" data-testid="link-dashboard">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/search" class="nav-item {% if active_page == 'search' %}active{% endif %}" data-testid="link-search">
+                    <i class="fas fa-search"></i>
+                    <span>Keyword Search</span>
+                </a>
+                <a href="/documents" class="nav-item {% if active_page == 'documents' %}active{% endif %}" data-testid="link-documents">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Documents</span>
+                </a>
+                <a href="/folders" class="nav-item {% if active_page == 'folders' %}active{% endif %}" data-testid="link-folders">
+                    <i class="fas fa-folder"></i>
+                    <span>Categories</span>
+                </a>
+            </div>
+            
+            <div class="nav-section editor-only">
+                <span class="nav-section-label">Actions</span>
+                <a href="/upload" class="nav-item {% if active_page == 'upload' %}active{% endif %}" data-testid="link-upload">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Upload Document</span>
+                </a>
+            </div>
+            
+            <div class="nav-section admin-only">
+                <span class="nav-section-label">Administration</span>
+                <a href="/activity" class="nav-item {% if active_page == 'activity' %}active{% endif %}" data-testid="link-activity">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Audit Trail</span>
+                </a>
+                <a href="/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}" data-testid="link-settings">
+                    <i class="fas fa-users-cog"></i>
+                    <span>User Management</span>
+                </a>
+            </div>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar" id="userAvatar">
+                    <span id="userInitials">JD</span>
+                </div>
+                <div class="user-info">
+                    <span class="user-name" id="userName">Loading...</span>
+                    <span class="user-role" id="userRole">-</span>
+                </div>
+                <a href="/logout" class="logout-icon-btn" data-testid="link-logout" title="Sign Out">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="top-header">
+            <h1 class="header-title">{% block page_title %}Dashboard{% endblock %}</h1>
+            <div class="header-actions">
+                {% block header_actions %}{% endblock %}
+            </div>
+        </div>
+        
+        <div class="page-header">
+            <div class="page-header-content">
+                <div>
+                    <p class="page-subtitle">{% block page_subtitle %}{% endblock %}</p>
+                </div>
+                <div class="page-actions">
+                    {% block page_actions %}{% endblock %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="page-content">
+            {% block page_content %}{% endblock %}
+        </div>
+    </main>
+</div>
+
+<!-- Floating AI Chat Widget -->
+<div class="chat-widget" id="chatWidget">
+    <div class="chat-widget-header">
+        <div class="chat-widget-header-left">
+            <button class="chat-widget-close" id="chatWidgetClose" data-testid="button-chat-close">
+                <i class="fas fa-times"></i>
+            </button>
+            <span class="chat-widget-title">Hi. Need any help?</span>
+        </div>
+    </div>
+    <div class="chat-widget-body" id="chatWidgetBody">
+        <div class="chat-widget-messages" id="chatWidgetMessages">
+            <div class="chat-widget-message assistant">
+                <div class="message-content">
+                    Hello! I'm Vicente, your AI assistant. How can I help you with your documents today?
+                </div>
+            </div>
+        </div>
+        <div class="chat-widget-input">
+            <input type="text" id="chatWidgetInput" placeholder="Type your message..." data-testid="input-chat-widget">
+            <button id="chatWidgetSend" data-testid="button-chat-send">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<button class="chat-widget-trigger" id="chatWidgetTrigger" data-testid="button-chat-trigger">
+    <i class="fas fa-comment"></i>
+</button>
+
+<script>
+// Initialize user data
+async function initializeUser() {
+    try {
+        const response = await fetch('/api/auth/user');
+        const data = await response.json();
+        
+        if (data.user) {
+            window.currentUser = data.user;
+            const displayName = data.user.firstName || data.user.username || 'User';
+            document.getElementById('userName').textContent = displayName;
+            // Format role display
+            const roleDisplay = {
+                'admin': 'Admin',
+                'board_secretariat': 'Board Secretariat',
+                'board_trustee': 'Board of Trustee'
+            };
+            document.getElementById('userRole').textContent = roleDisplay[data.user.role] || data.user.role;
+            
+            // Set initials
+            const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+            document.getElementById('userInitials').textContent = initials || 'U';
+            
+            if (data.user.profileImageUrl) {
+                document.getElementById('userAvatar').innerHTML = `<img src="${data.user.profileImageUrl}" alt="Avatar">`;
+            }
+            
+            // Show/hide role-based elements
+            if (data.user.role !== 'admin') {
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+            }
+            if (data.user.role === 'board_trustee') {
+                document.querySelectorAll('.editor-only').forEach(el => el.style.display = 'none');
+            }
+        } else {
+            window.location.href = '/login';
+        }
+    } catch (error) {
+        console.error('Failed to load user:', error);
+    }
+}
+
+initializeUser();
+
+// Chat Widget functionality
+const chatWidget = document.getElementById('chatWidget');
+const chatTrigger = document.getElementById('chatWidgetTrigger');
+const chatClose = document.getElementById('chatWidgetClose');
+const chatInput = document.getElementById('chatWidgetInput');
+const chatSend = document.getElementById('chatWidgetSend');
+const chatMessages = document.getElementById('chatWidgetMessages');
+
+let chatOpen = false;
+
+chatTrigger.addEventListener('click', function() {
+    chatOpen = !chatOpen;
+    if (chatOpen) {
+        chatWidget.classList.add('open');
+        chatTrigger.innerHTML = '<i class="fas fa-times"></i>';
+        chatInput.focus();
+    } else {
+        chatWidget.classList.remove('open');
+        chatTrigger.innerHTML = '<i class="fas fa-comment"></i>';
+    }
+});
+
+chatClose.addEventListener('click', function() {
+    chatOpen = false;
+    chatWidget.classList.remove('open');
+    chatTrigger.innerHTML = '<i class="fas fa-comment"></i>';
+});
+
+async function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    // Add user message
+    const userMsgDiv = document.createElement('div');
+    userMsgDiv.className = 'chat-widget-message user';
+    userMsgDiv.innerHTML = `<div class="message-content">${message}</div>`;
+    chatMessages.appendChild(userMsgDiv);
+    
+    chatInput.value = '';
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Show typing indicator
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'chat-widget-message assistant typing';
+    typingDiv.innerHTML = '<div class="message-content"><span class="typing-dots"><span>.</span><span>.</span><span>.</span></span></div>';
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        
+        const data = await response.json();
+        
+        // Remove typing indicator
+        typingDiv.remove();
+        
+        // Add assistant response
+        const assistantMsgDiv = document.createElement('div');
+        assistantMsgDiv.className = 'chat-widget-message assistant';
+        assistantMsgDiv.innerHTML = `<div class="message-content">${data.response || 'Sorry, I could not process your request.'}</div>`;
+        chatMessages.appendChild(assistantMsgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    } catch (error) {
+        typingDiv.remove();
+        const errorMsgDiv = document.createElement('div');
+        errorMsgDiv.className = 'chat-widget-message assistant';
+        errorMsgDiv.innerHTML = '<div class="message-content">Sorry, something went wrong. Please try again.</div>';
+        chatMessages.appendChild(errorMsgDiv);
+    }
+}
+
+chatSend.addEventListener('click', sendChatMessage);
+chatInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') sendChatMessage();
+});
+</script>
+{% endblock %}

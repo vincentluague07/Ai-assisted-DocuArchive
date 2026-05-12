@@ -1,0 +1,502 @@
+{% extends "layout.html" %}
+
+{% set active_page = 'settings' %}
+
+{% block page_title %}User Management{% endblock %}
+{% block page_subtitle %}Manage system users and their permissions{% endblock %}
+
+{% block header_actions %}
+<button class="btn btn-primary" onclick="showAddUserModal()" data-testid="button-add-user">
+    <i class="fas fa-user-plus"></i>
+    Add User
+</button>
+{% endblock %}
+
+{% block page_content %}
+<div class="user-management-container">
+    <div class="data-table-container">
+        <table class="data-table" id="usersTable">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Last Login</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                <tr>
+                    <td colspan="7" class="loading-cell">Loading users...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="user-stats-row" id="userStatsRow">
+        <div class="stat-card blue">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-value" id="statTotalUsers">0</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-icon"><i class="fas fa-user-check"></i></div>
+            <div class="stat-value" id="statActiveUsers">0</div>
+            <div class="stat-label">Active Users</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-icon"><i class="fas fa-user-shield"></i></div>
+            <div class="stat-value" id="statAdmins">0</div>
+            <div class="stat-label">Admins</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-icon"><i class="fas fa-user-tie"></i></div>
+            <div class="stat-value" id="statSecretariat">0</div>
+            <div class="stat-label">Board Secretariat</div>
+        </div>
+    </div>
+    
+    <section class="settings-section mt-4">
+        <div class="section-header">
+            <h3>Document Categories</h3>
+            <button class="btn btn-primary btn-small" onclick="showAddCategoryModal()" data-testid="button-add-category">
+                <i class="fas fa-plus"></i>
+                Add Category
+            </button>
+        </div>
+        
+        <div class="categories-list" id="categoriesList">
+            <div class="loading-placeholder">Loading categories...</div>
+        </div>
+    </section>
+</div>
+
+<div class="modal" id="userModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="userModalTitle">Add User</h2>
+            <button class="modal-close" onclick="closeUserModal()" data-testid="button-close-user-modal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="userForm">
+            <input type="hidden" id="userId" value="">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="userUsername">Username *</label>
+                        <input type="text" id="userUsername" required data-testid="input-username">
+                    </div>
+                    <div class="form-group">
+                        <label for="userEmail">Email</label>
+                        <input type="email" id="userEmail" data-testid="input-email">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="userFirstName">First Name</label>
+                        <input type="text" id="userFirstName" data-testid="input-first-name">
+                    </div>
+                    <div class="form-group">
+                        <label for="userLastName">Last Name</label>
+                        <input type="text" id="userLastName" data-testid="input-last-name">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="userRole">Role *</label>
+                        <select id="userRole" required data-testid="select-role">
+                            <option value="admin">Admin</option>
+                            <option value="board_secretariat">Board Secretariat</option>
+                            <option value="board_trustee">Board of Trustee</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="userStatus">Status</label>
+                        <select id="userStatus" data-testid="select-status">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="userPassword" id="passwordLabel">Password *</label>
+                        <input type="password" id="userPassword" data-testid="input-password">
+                        <small class="form-hint" id="passwordHint">Minimum 6 characters</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" data-testid="button-save-user">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal" id="categoryModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Add Category</h2>
+            <button class="modal-close" onclick="closeCategoryModal()" data-testid="button-close-category-modal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="categoryForm">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="categoryName">Name</label>
+                    <input type="text" id="categoryName" required data-testid="input-category-name">
+                </div>
+                <div class="form-group">
+                    <label for="categoryDescription">Description</label>
+                    <textarea id="categoryDescription" data-testid="input-category-description"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" data-testid="button-save-category">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let users = [];
+let categories = [];
+let editingUserId = null;
+
+async function loadUsers() {
+    try {
+        const response = await fetch('/api/users');
+        
+        if (response.status === 403) {
+            document.getElementById('usersTableBody').innerHTML = 
+                '<tr><td colspan="7" class="text-center text-muted">Admin access required to manage users</td></tr>';
+            return;
+        }
+        
+        users = await response.json();
+        renderUsersTable();
+        loadUserStats();
+    } catch (error) {
+        console.error('Failed to load users:', error);
+        document.getElementById('usersTableBody').innerHTML = 
+            '<tr><td colspan="7" class="error-cell">Failed to load users</td></tr>';
+    }
+}
+
+async function loadUserStats() {
+    try {
+        const response = await fetch('/api/users/stats');
+        if (response.ok) {
+            const stats = await response.json();
+            document.getElementById('statTotalUsers').textContent = stats.totalUsers;
+            document.getElementById('statActiveUsers').textContent = stats.activeUsers;
+            document.getElementById('statAdmins').textContent = stats.administrators;
+            document.getElementById('statSecretariat').textContent = stats.secretariat;
+        }
+    } catch (error) {
+        console.error('Failed to load user stats:', error);
+    }
+}
+
+function renderUsersTable() {
+    const tbody = document.getElementById('usersTableBody');
+    
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No users found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = users.map(user => `
+        <tr data-testid="user-row-${user.id}">
+            <td>
+                <div class="user-cell">
+                    <div class="user-avatar-small">
+                        ${user.profileImageUrl ? 
+                            `<img src="${user.profileImageUrl}" alt="">` : 
+                            '<i class="fas fa-user"></i>'}
+                    </div>
+                    <span class="username">${escapeHtml(user.username || user.id)}</span>
+                    ${user.id === '{{ current_user.id }}' ? '<span class="badge badge-info">You</span>' : ''}
+                </div>
+            </td>
+            <td>${escapeHtml(user.email) || '-'}</td>
+            <td><span class="badge badge-${getRoleBadgeClass(user.role)}">${formatRole(user.role)}</span></td>
+            <td><span class="badge badge-${user.status === 'active' ? 'success' : 'secondary'}">${user.status}</span></td>
+            <td>${user.lastLogin ? formatDate(user.lastLogin) : '-'}</td>
+            <td>${user.createdAt ? formatDate(user.createdAt).split(' ')[0] : '-'}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="action-icon" onclick="editUser('${user.id}')" title="Edit" data-testid="button-edit-user-${user.id}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    ${user.id !== '{{ current_user.id }}' ? `
+                        <button class="action-icon danger" onclick="deleteUser('${user.id}', '${escapeHtml(user.username)}')" title="Delete" data-testid="button-delete-user-${user.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function getRoleBadgeClass(role) {
+    switch(role) {
+        case 'admin': return 'danger';
+        case 'board_secretariat': return 'warning';
+        default: return 'primary';
+    }
+}
+
+function formatRole(role) {
+    switch(role) {
+        case 'admin': return 'Admin';
+        case 'board_secretariat': return 'Board Secretariat';
+        case 'board_trustee': return 'Board of Trustee';
+        default: return role;
+    }
+}
+
+function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }) + ' ' + date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+}
+
+function showAddUserModal() {
+    editingUserId = null;
+    document.getElementById('userModalTitle').textContent = 'Add User';
+    document.getElementById('userId').value = '';
+    document.getElementById('userUsername').value = '';
+    document.getElementById('userEmail').value = '';
+    document.getElementById('userFirstName').value = '';
+    document.getElementById('userLastName').value = '';
+    document.getElementById('userRole').value = 'board_trustee';
+    document.getElementById('userStatus').value = 'active';
+    document.getElementById('userPassword').value = '';
+    document.getElementById('userPassword').required = true;
+    document.getElementById('passwordLabel').textContent = 'Password *';
+    document.getElementById('passwordHint').textContent = 'Minimum 6 characters';
+    document.getElementById('userModal').classList.add('active');
+}
+
+function editUser(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    editingUserId = userId;
+    document.getElementById('userModalTitle').textContent = 'Edit User';
+    document.getElementById('userId').value = userId;
+    document.getElementById('userUsername').value = user.username || '';
+    document.getElementById('userEmail').value = user.email || '';
+    document.getElementById('userFirstName').value = user.firstName || '';
+    document.getElementById('userLastName').value = user.lastName || '';
+    
+    // Handle old roles that might still exist in database
+    const roleSelect = document.getElementById('userRole');
+    const roleExists = Array.from(roleSelect.options).some(opt => opt.value === user.role);
+    roleSelect.value = roleExists ? user.role : 'board_trustee';
+    
+    document.getElementById('userStatus').value = user.status;
+    document.getElementById('userPassword').value = '';
+    document.getElementById('userPassword').required = false;
+    document.getElementById('passwordLabel').textContent = 'Password';
+    document.getElementById('passwordHint').textContent = 'Leave blank to keep current password';
+    document.getElementById('userModal').classList.add('active');
+}
+
+function closeUserModal() {
+    document.getElementById('userModal').classList.remove('active');
+    editingUserId = null;
+}
+
+async function handleUserSubmit(e) {
+    e.preventDefault();
+    
+    const data = {
+        username: document.getElementById('userUsername').value.trim(),
+        email: document.getElementById('userEmail').value.trim(),
+        firstName: document.getElementById('userFirstName').value.trim(),
+        lastName: document.getElementById('userLastName').value.trim(),
+        role: document.getElementById('userRole').value,
+        status: document.getElementById('userStatus').value
+    };
+    
+    const password = document.getElementById('userPassword').value;
+    if (password) {
+        if (password.length < 6) {
+            alert('Password must be at least 6 characters');
+            return;
+        }
+        data.password = password;
+    } else if (!editingUserId) {
+        alert('Password is required for new users');
+        return;
+    }
+    
+    try {
+        const url = editingUserId ? `/api/users/${editingUserId}` : '/api/users';
+        const method = editingUserId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            closeUserModal();
+            loadUsers();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to save user');
+        }
+    } catch (error) {
+        console.error('Failed to save user:', error);
+        alert('Failed to save user');
+    }
+}
+
+async function deleteUser(userId, username) {
+    if (!confirm(`Are you sure you want to delete user "${username}"?`)) return;
+    
+    try {
+        const response = await fetch(`/api/users/${userId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            loadUsers();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to delete user');
+        }
+    } catch (error) {
+        console.error('Failed to delete user:', error);
+        alert('Failed to delete user');
+    }
+}
+
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/categories');
+        categories = await response.json();
+        
+        if (categories.length === 0) {
+            document.getElementById('categoriesList').innerHTML = 
+                '<p class="empty-state">No categories yet</p>';
+            return;
+        }
+        
+        document.getElementById('categoriesList').innerHTML = categories.map(cat => `
+            <div class="category-item" data-testid="category-${cat.id}">
+                <div class="category-info">
+                    <h4>${escapeHtml(cat.name)}</h4>
+                    <p>${escapeHtml(cat.description) || 'No description'}</p>
+                    <span class="doc-count">${cat.documentCount || 0} documents</span>
+                </div>
+                <div class="category-actions">
+                    <button class="action-icon danger" onclick="deleteCategory(${cat.id}, '${escapeHtml(cat.name)}')" 
+                            title="Delete" data-testid="button-delete-category-${cat.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Failed to load categories:', error);
+        document.getElementById('categoriesList').innerHTML = 
+            '<p class="error-state">Failed to load categories</p>';
+    }
+}
+
+function showAddCategoryModal() {
+    document.getElementById('categoryName').value = '';
+    document.getElementById('categoryDescription').value = '';
+    document.getElementById('categoryModal').classList.add('active');
+}
+
+function closeCategoryModal() {
+    document.getElementById('categoryModal').classList.remove('active');
+}
+
+async function handleCategorySubmit(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('categoryName').value.trim();
+    const description = document.getElementById('categoryDescription').value.trim();
+    
+    if (!name) {
+        alert('Category name is required');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description })
+        });
+        
+        if (response.ok) {
+            closeCategoryModal();
+            loadCategories();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to create category');
+        }
+    } catch (error) {
+        console.error('Failed to create category:', error);
+        alert('Failed to create category');
+    }
+}
+
+async function deleteCategory(id, name) {
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+    
+    try {
+        const response = await fetch(`/api/categories/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            loadCategories();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to delete category');
+        }
+    } catch (error) {
+        console.error('Failed to delete category:', error);
+        alert('Failed to delete category');
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.getElementById('userForm').addEventListener('submit', handleUserSubmit);
+document.getElementById('categoryForm').addEventListener('submit', handleCategorySubmit);
+
+loadUsers();
+loadCategories();
+</script>
+{% endblock %}

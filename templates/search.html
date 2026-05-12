@@ -1,0 +1,241 @@
+{% extends "layout.html" %}
+
+{% set active_page = 'search' %}
+
+{% block page_title %}Search{% endblock %}
+{% block page_subtitle %}{% endblock %}
+
+{% block page_content %}
+<div class="search-container">
+    <!-- Search Form Card -->
+    <div class="search-form-card">
+        <form id="searchForm">
+            <div class="search-form-grid">
+                <div class="search-form-group">
+                    <label for="searchQuery">Search Query</label>
+                    <input type="text" id="searchQuery" class="search-input" placeholder="Enter keywords, document title, or content..." data-testid="input-search-query">
+                </div>
+                <div class="search-form-group">
+                    <label for="searchScope">Search In</label>
+                    <select id="searchScope" class="search-select" data-testid="select-search-scope">
+                        <option value="all">All Fields</option>
+                        <option value="title">Title Only</option>
+                        <option value="content">Content Only</option>
+                        <option value="keywords">Keywords Only</option>
+                    </select>
+                </div>
+                <div class="search-form-group">
+                    <label for="categoryFilter">Document Type</label>
+                    <select id="categoryFilter" class="search-select" data-testid="select-category">
+                        <option value="">All Types</option>
+                    </select>
+                </div>
+            </div>
+            <div class="search-actions">
+                <button type="submit" class="btn btn-primary" data-testid="button-search">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                <button type="button" class="btn btn-outline" id="clearBtn" data-testid="button-clear">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Search Results Area -->
+    <div id="searchResults">
+        <!-- Empty State -->
+        <div class="search-empty-state" id="emptyState">
+            <div class="search-empty-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <h3>Search the Database</h3>
+            <p>Enter keywords or use natural language to find documents</p>
+            
+            <div class="example-searches">
+                <div class="example-box">
+                    <h4>Search by Title</h4>
+                    <ul>
+                        <li onclick="setSearchQuery('Board Resolution 2025')">Board Resolution 2025</li>
+                        <li onclick="setSearchQuery('Financial Report Q4')">Financial Report Q4</li>
+                        <li onclick="setSearchQuery('Meeting Minutes')">Meeting Minutes</li>
+                    </ul>
+                </div>
+                <div class="example-box">
+                    <h4>Search by Content</h4>
+                    <ul>
+                        <li onclick="setSearchQuery('investment portfolio allocation')">investment portfolio allocation</li>
+                        <li onclick="setSearchQuery('policy amendment procedures')">policy amendment procedures</li>
+                        <li onclick="setSearchQuery('trustee responsibilities')">trustee responsibilities</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="quick-access">
+                <span class="quick-access-label">Quick Access</span>
+                <div class="quick-access-buttons">
+                    <a href="/documents" class="btn btn-secondary">
+                        <i class="fas fa-file-alt"></i> All Documents
+                    </a>
+                    <a href="/folders" class="btn btn-secondary">
+                        <i class="fas fa-folder"></i> Browse Folders
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Container (hidden by default) -->
+        <div id="resultsContainer" style="display: none;">
+            <div class="search-results-header" id="resultsHeader">
+                <i class="fas fa-check-circle"></i>
+                <span>Found <strong id="resultCount">0</strong> document(s) matching your search</span>
+            </div>
+            
+            <div class="documents-table-card">
+                <table class="documents-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Size</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let categories = [];
+
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/categories');
+        categories = await response.json();
+        
+        const catFilter = document.getElementById('categoryFilter');
+        catFilter.innerHTML = '<option value="">All Types</option>' + 
+            categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    } catch (error) {
+        console.error('Failed to load categories:', error);
+    }
+}
+
+function setSearchQuery(query) {
+    document.getElementById('searchQuery').value = query;
+    performSearch();
+}
+
+async function performSearch() {
+    const query = document.getElementById('searchQuery').value.trim();
+    if (!query) {
+        showEmptyState();
+        return;
+    }
+    
+    const categoryId = document.getElementById('categoryFilter').value;
+    
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('resultsContainer').style.display = 'block';
+    document.getElementById('resultsBody').innerHTML = '<tr><td colspan="5" class="loading-cell"><i class="fas fa-spinner fa-spin"></i> Searching...</td></tr>';
+    
+    try {
+        let url = `/api/search?q=${encodeURIComponent(query)}&ai=true`;
+        if (categoryId) url += `&categoryId=${categoryId}`;
+        
+        const response = await fetch(url);
+        const results = await response.json();
+        
+        document.getElementById('resultCount').textContent = results.length;
+        
+        if (results.length === 0) {
+            document.getElementById('resultsBody').innerHTML = '<tr><td colspan="5" class="empty-cell">No documents found matching your search</td></tr>';
+            return;
+        }
+        
+        document.getElementById('resultsBody').innerHTML = results.map(doc => `
+            <tr data-testid="result-row-${doc.id}">
+                <td>
+                    <div class="doc-title-cell">
+                        <span class="doc-title-main">${escapeHtml(doc.title)}</span>
+                        <span class="doc-title-sub">${escapeHtml(doc.fileName || '')}</span>
+                    </div>
+                </td>
+                <td><span class="type-badge">${doc.category ? doc.category.name : 'General'}</span></td>
+                <td>${formatDate(doc.createdAt)}</td>
+                <td>${formatSize(doc.fileSize)}</td>
+                <td>
+                    <div class="actions-cell">
+                        <button class="action-btn" onclick="downloadDocument(${doc.id})" title="Download" data-testid="button-download-${doc.id}">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="action-btn" onclick="viewDocument(${doc.id})" title="View" data-testid="button-view-${doc.id}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Search failed:', error);
+        document.getElementById('resultsBody').innerHTML = '<tr><td colspan="5" class="error-cell">Search failed. Please try again.</td></tr>';
+    }
+}
+
+function showEmptyState() {
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('resultsContainer').style.display = 'none';
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatSize(bytes) {
+    if (!bytes) return '-';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    while (bytes >= 1024 && i < units.length - 1) {
+        bytes /= 1024;
+        i++;
+    }
+    return `${bytes.toFixed(1)} ${units[i]}`;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function downloadDocument(id) {
+    window.location.href = `/api/documents/${id}/download`;
+}
+
+function viewDocument(id) {
+    window.location.href = `/documents?view=${id}`;
+}
+
+// Event listeners
+document.getElementById('searchForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    performSearch();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+    document.getElementById('searchQuery').value = '';
+    document.getElementById('categoryFilter').value = '';
+    showEmptyState();
+});
+
+loadCategories();
+</script>
+{% endblock %}

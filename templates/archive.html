@@ -1,0 +1,178 @@
+{% extends "layout.html" %}
+
+{% set active_page = 'archive' %}
+
+{% block page_title %}Archive{% endblock %}
+{% block page_subtitle %}Deleted and archived documents{% endblock %}
+
+{% block page_content %}
+<div class="archive-container">
+    <div class="archive-info">
+        <i class="fas fa-info-circle"></i>
+        <p>Archived documents can be restored or permanently deleted. Permanent deletion cannot be undone.</p>
+    </div>
+    
+    <div class="documents-grid" id="archiveContainer">
+        <div class="loading-placeholder">Loading archived documents...</div>
+    </div>
+</div>
+
+<!-- Permanent Delete Modal -->
+<div class="modal" id="deleteModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Permanently Delete</h2>
+            <button class="modal-close" data-testid="button-close-delete-modal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="warning-text"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone!</p>
+            <p>Are you sure you want to permanently delete <strong id="deleteDocName"></strong>?</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-danger" id="confirmDeleteBtn" data-testid="button-confirm-permanent-delete">
+                Delete Permanently
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let archivedDocuments = [];
+let deleteDocId = null;
+
+async function loadArchivedDocuments() {
+    try {
+        const response = await fetch('/api/documents?archived=true');
+        archivedDocuments = await response.json();
+        
+        if (archivedDocuments.length === 0) {
+            document.getElementById('archiveContainer').innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-archive"></i>
+                    <p>No archived documents</p>
+                </div>`;
+            return;
+        }
+        
+        document.getElementById('archiveContainer').innerHTML = archivedDocuments.map(doc => `
+            <div class="document-card archived" data-id="${doc.id}" data-testid="card-archived-${doc.id}">
+                <div class="doc-icon">
+                    <i class="fas ${getFileIcon(doc.fileType)}"></i>
+                </div>
+                <div class="doc-content">
+                    <h4 class="doc-title">${escapeHtml(doc.title)}</h4>
+                    <p class="doc-summary">${escapeHtml(doc.aiSummary || doc.description || 'No description')}</p>
+                    <div class="doc-meta">
+                        <span class="doc-category">${doc.category ? doc.category.name : 'Uncategorized'}</span>
+                        <span class="doc-date">Archived: ${formatDate(doc.updatedAt)}</span>
+                    </div>
+                </div>
+                <div class="doc-actions">
+                    <button class="action-icon success editor-only" onclick="restoreDocument(${doc.id})" 
+                            title="Restore" data-testid="button-restore-${doc.id}">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="action-icon danger editor-only" onclick="showDeleteModal(${doc.id}, '${escapeHtml(doc.title)}')" 
+                            title="Delete Permanently" data-testid="button-permanent-delete-${doc.id}">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        // Hide editor-only elements for Board of Trustee (view-only role)
+        if (window.currentUser && window.currentUser.role === 'board_trustee') {
+            document.querySelectorAll('.editor-only').forEach(el => el.style.display = 'none');
+        }
+    } catch (error) {
+        console.error('Failed to load archived documents:', error);
+        document.getElementById('archiveContainer').innerHTML = 
+            '<p class="error-state">Failed to load archived documents</p>';
+    }
+}
+
+function getFileIcon(fileType) {
+    const icons = {
+        'pdf': 'fa-file-pdf',
+        'doc': 'fa-file-word',
+        'docx': 'fa-file-word',
+        'txt': 'fa-file-alt'
+    };
+    return icons[fileType] || 'fa-file';
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function restoreDocument(id) {
+    try {
+        const response = await fetch(`/api/documents/${id}/restore`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            loadArchivedDocuments();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to restore document');
+        }
+    } catch (error) {
+        console.error('Failed to restore document:', error);
+        alert('Failed to restore document');
+    }
+}
+
+function showDeleteModal(id, title) {
+    deleteDocId = id;
+    document.getElementById('deleteDocName').textContent = title;
+    document.getElementById('deleteModal').classList.add('active');
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('active');
+    deleteDocId = null;
+}
+
+async function permanentDelete() {
+    if (!deleteDocId) return;
+    
+    try {
+        const response = await fetch(`/api/documents/${deleteDocId}?permanent=true`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            closeDeleteModal();
+            loadArchivedDocuments();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to delete document');
+        }
+    } catch (error) {
+        console.error('Failed to delete document:', error);
+        alert('Failed to delete document');
+    }
+}
+
+// Event listeners
+document.querySelectorAll('.modal-close, .modal-backdrop').forEach(el => {
+    el.addEventListener('click', closeDeleteModal);
+});
+document.getElementById('confirmDeleteBtn').addEventListener('click', permanentDelete);
+
+loadArchivedDocuments();
+</script>
+{% endblock %}

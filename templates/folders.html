@@ -1,0 +1,122 @@
+{% extends "layout.html" %}
+
+{% set active_page = 'folders' %}
+
+{% block page_title %}Document Folders{% endblock %}
+{% block page_subtitle %}{% endblock %}
+
+{% block page_actions %}
+<a href="/documents" class="btn btn-secondary" data-testid="button-all-documents">
+    <i class="fas fa-file-alt"></i>
+    All Documents
+</a>
+<button class="btn btn-secondary editor-only" data-testid="button-bulk-import">
+    <i class="fas fa-file-import"></i>
+    Bulk Import
+</button>
+<button class="btn btn-primary editor-only" id="newFolderBtn" data-testid="button-new-folder">
+    <i class="fas fa-plus"></i>
+    New Folder
+</button>
+{% endblock %}
+
+{% block page_content %}
+<div class="folders-container" id="foldersContainer">
+    <div class="folder-card" data-testid="folder-board-resolutions">
+        <div class="folder-icon">
+            <i class="fas fa-folder"></i>
+        </div>
+        <div class="folder-info">
+            <div class="folder-name">Board Resolutions</div>
+            <div class="folder-meta">Import Source: Document Import</div>
+            <div class="folder-count">158 documents</div>
+        </div>
+        <a href="/documents?category=1" class="btn btn-primary btn-sm">Browse</a>
+    </div>
+    
+    <div class="folder-card" data-testid="folder-meeting-minutes">
+        <div class="folder-icon">
+            <i class="fas fa-folder"></i>
+        </div>
+        <div class="folder-info">
+            <div class="folder-name">Meeting Minutes</div>
+            <div class="folder-meta">Import Source: Manual Upload</div>
+            <div class="folder-count">89 documents</div>
+        </div>
+        <a href="/documents?category=2" class="btn btn-primary btn-sm">Browse</a>
+    </div>
+    
+    <div class="folder-card" data-testid="folder-administrative">
+        <div class="folder-icon">
+            <i class="fas fa-folder"></i>
+        </div>
+        <div class="folder-info">
+            <div class="folder-name">Administrative Records</div>
+            <div class="folder-meta">Import Source: Bulk Import</div>
+            <div class="folder-count">245 documents</div>
+        </div>
+        <a href="/documents?category=3" class="btn btn-primary btn-sm">Browse</a>
+    </div>
+    
+    <div class="folder-card" data-testid="folder-financial">
+        <div class="folder-icon">
+            <i class="fas fa-folder"></i>
+        </div>
+        <div class="folder-info">
+            <div class="folder-name">Financial Reports</div>
+            <div class="folder-meta">Import Source: Manual Upload</div>
+            <div class="folder-count">67 documents</div>
+        </div>
+        <a href="/documents?category=4" class="btn btn-primary btn-sm">Browse</a>
+    </div>
+    
+    <div class="folder-card" data-testid="folder-policies">
+        <div class="folder-icon">
+            <i class="fas fa-folder"></i>
+        </div>
+        <div class="folder-info">
+            <div class="folder-name">Policies & Procedures</div>
+            <div class="folder-meta">Import Source: Document Import</div>
+            <div class="folder-count">42 documents</div>
+        </div>
+        <a href="/documents?category=5" class="btn btn-primary btn-sm">Browse</a>
+    </div>
+</div>
+
+<script>
+async function loadFolders() {
+    try {
+        const response = await fetch('/api/categories');
+        const categories = await response.json();
+        
+        if (categories.length > 0) {
+            const container = document.getElementById('foldersContainer');
+            container.innerHTML = categories.map(cat => `
+                <div class="folder-card" data-testid="folder-${cat.id}">
+                    <div class="folder-icon">
+                        <i class="fas fa-folder"></i>
+                    </div>
+                    <div class="folder-info">
+                        <div class="folder-name">${escapeHtml(cat.name)}</div>
+                        <div class="folder-meta">${escapeHtml(cat.description || 'No description')}</div>
+                        <div class="folder-count">${cat.documentCount || 0} documents</div>
+                    </div>
+                    <a href="/documents?category=${cat.id}" class="btn btn-primary btn-sm">Browse</a>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Failed to load folders:', error);
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadFolders();
+</script>
+{% endblock %}
