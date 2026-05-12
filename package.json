@@ -1,0 +1,10 @@
+{
+  "name": "aidocarchive",
+  "version": "1.0.0",
+  "description": "AI-Assisted Document Archiving System for AFPMBAI",
+  "scripts": {
+    "dev": "python app.py",
+    "start": "python app.py"
+  },
+  "license": "MIT"
+}
